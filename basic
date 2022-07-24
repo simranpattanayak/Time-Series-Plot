@@ -1,0 +1,152 @@
+# Import the required modules and load the dataset.
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import datetime
+# Get the information on DataFrame.
+df = pd.read_csv("https://student-datasets-bucket.s3.ap-south-1.amazonaws.com/whitehat-ds-datasets/iot-devices/IoT-device.csv")
+df.info()
+# Check for the null values in the DataFrame.
+df.isnull().sum()
+# Convert the values contained in the 'noted_date' column into the 'datetime' objects.
+df["noted_date"] = pd.to_datetime(df["noted_date"])
+# Verify whether the conversion is successful or not.
+print(df["noted_date"].dtype)
+# Sort the DataFrame in the increasing order of dates and time.
+df = df.sort_values(by="noted_date")
+# Create new columns for year, month, day, day name, hours and minutes values and add to the DataFrame.
+year = df["noted_date"].dt.year
+month = df["noted_date"].dt.month
+day = df["noted_date"].dt.day
+day_name = df["noted_date"].dt.day_name()
+hours = df["noted_date"].dt.hour
+minutes = df["noted_date"].dt.minute
+
+df["Year"] = year
+df["Month"] = month
+df["Day"] = day
+df["Day Name"] = day_name
+df["Hours"] = hours
+df["Minutes"] = minutes
+# Display the first five rows of the DataFrame.
+df.head()
+# Create a DataFrame for the indoor temperature records.
+df_in = df[df["out/in"] == "In"]
+df_in.head()
+# Create a time series line plot for the indoor temperature records.
+plt.figure(figsize=(30, 10))
+plt.plot(df_in["noted_date"], df_in["temp"])
+plt.grid()
+plt.show()
+# Create a DataFrame for the outdoor temperature records.
+df_out = df[df["out/in"] == "Out"]
+df_out.head()
+# Create a time series line plot for the outdoor temperature records.
+plt.figure(figsize=(30, 10))
+plt.plot(df_out["noted_date"], df_out["temp"])
+plt.grid()
+plt.show()
+# Compare the time series line plots for both the indoor and outdoor temperature records.
+plt.figure(figsize=(30, 10))
+plt.plot(df_out["noted_date"], df_out["temp"], label="Out")
+plt.plot(df_in["noted_date"], df_in["temp"], label="In")
+plt.legend()
+plt.grid()
+plt.show()
+# Create a box plot to represent the distribution of indoor and outdoor temperatures for the whole year.
+plt.figure(figsize=(30, 10))
+sns.boxplot(x='out/in',y='temp', data=df)
+plt.show()
+# Create a box plot to represent the monthly distribution of indoor and outdoor temperatures. Also label the x-axis with actual month names.
+months = ["January", "Ferbuary", "March","April", "May", "June", "July", "August", "September", "October", "November", "December"]
+plt.figure(figsize=(30, 10))
+sns.boxplot(x="Month", y="temp", hue='out/in',data=df)
+plt.xticks(ticks= np.arange(0,12), labels=months)
+plt.show()
+# Group the data to get the monthly median indoor and outdoor temperatures along with the max and minimum temperatures.
+group_monthly = df.groupby(by="Month")
+group_monthly_in = df_in.groupby(by="Month")
+group_monthly_out = df_out.groupby(by="Month")
+# Create a line plot for the monthly median indoor temperatures.
+plt.figure(figsize=(30, 10))
+plt.plot(group_monthly_in["Month"].median(), group_monthly_in["temp"].median())
+plt.xticks(ticks= np.arange(0,12), labels=months)
+plt.title("Monthly median indoor temperatures")
+plt.ylabel("Temperature")
+plt.xlabel("Months")
+plt.grid()
+plt.show()
+# Create a line plot for the monthly median outdoor temperatures.
+plt.figure(figsize=(30, 10))
+plt.plot(group_monthly_out["Month"].median(), group_monthly_out["temp"].median())
+plt.xticks(ticks= np.arange(0,12), labels=months)
+plt.title("Monthly median indoor temperatures")
+plt.ylabel("Temperature")
+plt.xlabel("Months")
+plt.grid()
+plt.show()
+# Compare the monthly median indoor and outdoor temperatures.
+plt.figure(figsize=(30, 10))
+plt.plot(group_monthly_out["Month"].median(), group_monthly_out["temp"].median(), label="Outdoor")
+plt.plot(group_monthly_in["Month"].median(), group_monthly_in["temp"].median(), label="Indoor")
+plt.xticks(ticks= np.arange(0,12), labels=months)
+plt.title("Monthly median indoor and outdoor temperatures")
+plt.ylabel("Temperature")
+plt.xlabel("Months")
+plt.legend()
+plt.grid()
+plt.show()
+# Create a bar plot for the monthly median indoor & outdoor temperatures in a single bar chart.
+plt.figure(figsize=(30, 10))
+plt.bar(x=np.arange(0,12) - 0.2, height=group_monthly_out["temp"].median(), width=0.4, label="Outdoor")
+plt.bar(x=np.arange(0,12) + 0.2, height=group_monthly_in["temp"].median(), width=0.4, label="Indoor")
+plt.xticks(ticks= np.arange(0,12), labels=months)
+plt.title("Monthly median indoor and outdoor temperatures")
+plt.ylabel("Temperature")
+plt.xlabel("Months")
+plt.legend()
+plt.grid()
+plt.show()
+df_day = df.groupby(by=['Month', 'Day'])
+df_day.head()
+# Get the maximum and minimum temperatures for each day in each month.
+print(df_day.agg(func={'temp':['max', 'min']}))
+# Get the hottest day for each month along with the temperature.
+group_monthly.max().loc[:, ['temp', 'Day']]
+# Get the coldest day for each month along with the temperature.
+group_monthly.min().loc[:, ['temp', 'Day']]
+# Create a function to label the each temperature value on a given day and time with the heat indices as advised in the data-description.
+def label(temp):
+
+  heat_list = []
+
+  for i in temp:
+
+    if i <= 32:
+      heat_list.append('Green')
+
+    elif i >= 32 and i <= 41:
+      heat_list.append('Yellow')
+
+    elif i >= 42 and i <= 53:
+      heat_list.append('Orange')
+
+    elif i <= 54:
+      heat_list.append('Red')
+
+  return pd.Series(heat_list)
+  # Add the 'heat_index' column in the DataFrame containing the heat indices corresponding to the temperature values on a given day and time.
+df['heat_index'] = label(df['temp'])
+# Get the counts of the heat zones.
+df['heat_index'].value_counts()
+# Get the percentage distribution of the heat zones.
+g_per = df[df['heat_index'] == 'Green'].shape[0] * 100 / df.shape[0]
+y_per = df[df['heat_index'] == 'Yellow'].shape[0] * 100 / df.shape[0]
+o_per = df[df['heat_index'] == 'Orange'].shape[0] * 100 / df.shape[0]
+r_per = df[df['heat_index'] == 'Red'].shape[0] * 100 / df.shape[0]
+
+print(f'the percentage of green zone is {round(g_per, 2)}')
+print(f'the percentage of yellow zone is {round(y_per, 2)}')
+print(f'the percentage of orange zone is {round(o_per, 2)}')
+print(f'the percentage of red zone is {round(r_per, 2)}')
